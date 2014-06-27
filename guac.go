@@ -28,7 +28,7 @@ func Run() {
 
 // WatchPath sets up a watcher on srcDir and all child directories. fn is
 // executed whenever a folder being watched emits a fs event.
-func WatchPath(srcDir string, fn func() (*os.File, error)) {
+func WatchPath(srcDir string, fn func() error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -50,7 +50,7 @@ func WatchPath(srcDir string, fn func() (*os.File, error)) {
 		for {
 			select {
 			case <-watcher.Event:
-				if _, err := fn(); err != nil {
+				if err := fn(); err != nil {
 					log.Println("error:", err)
 				}
 			case err := <-watcher.Error:
