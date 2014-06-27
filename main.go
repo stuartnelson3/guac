@@ -4,8 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+
+	"github.com/howeyc/fsnotify"
 )
 
 func main() {
@@ -21,7 +26,48 @@ func main() {
 		return
 	}
 
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer watcher.Close()
+
+	filepath.Walk(*srcDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			err = watcher.Watch(path)
+			if err != nil {
+				return err
+			}
+			log.Printf("Watching %s.\n", path)
+		}
+		return nil
+	})
+
+	go func() {
+		log.Printf("Watching for %s file changes in %s", ".js", *srcDir)
+		for {
+			select {
+			case <-watcher.Event:
+				concat(*dst, *srcDir)
+			case err := <-watcher.Error:
+				log.Println("error:", err)
+			}
+		}
+	}()
+
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		fmt.Printf("\nStopping watch.\n")
+		done <- true
+	}()
+
 	concat(*dst, *srcDir)
+
+	<-done
 }
 
 func concat(dst, srcDir string) (*os.File, error) {
