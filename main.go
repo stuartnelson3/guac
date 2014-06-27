@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -11,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/howeyc/fsnotify"
+	"github.com/stuartnelson3/guac/concat"
 )
 
 func main() {
@@ -27,34 +27,7 @@ func main() {
 		return
 	}
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer watcher.Close()
-
-	filepath.Walk(*srcDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			err = watcher.Watch(path)
-			if err != nil {
-				return err
-			}
-			log.Printf("Watching %s.\n", path)
-		}
-		return nil
-	})
-
-	go func() {
-		log.Printf("Watching for %s file changes in %s", *ext, *srcDir)
-		for {
-			select {
-			case <-watcher.Event:
-				concat(*dst, *srcDir, *ext)
-			case err := <-watcher.Error:
-				log.Println("error:", err)
-			}
-		}
-	}()
+	WatchPath(*srcDir, *dst, *ext, concat.Concat)
 
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
@@ -66,35 +39,38 @@ func main() {
 		done <- true
 	}()
 
-	concat(*dst, *srcDir, *ext)
+	concat.Concat(*dst, *srcDir, *ext)
 
 	<-done
 }
 
-func concat(dst, srcDir, ext string) (*os.File, error) {
-	f, err := os.Create(dst)
-	filepath.Walk(srcDir, find(ext, dst))
-	return f, err
-}
+func WatchPath(srcDir, dst, ext string, fn func(dst, srcDir, ext string) (*os.File, error)) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-func find(ext, dst string) func(path string, info os.FileInfo, err error) error {
-	return func(path string, info os.FileInfo, err error) error {
-		if filepath.Ext(path) == ext {
-			fmt.Printf("Appending %s\n", path)
-			dst, err := os.OpenFile(dst, os.O_RDWR|os.O_APPEND, 0666)
+	filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			err = watcher.Watch(path)
 			if err != nil {
 				return err
 			}
-			defer dst.Close()
-
-			src, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer src.Close()
-
-			io.Copy(dst, src)
+			log.Printf("Watching %s.\n", path)
 		}
 		return nil
-	}
+	})
+
+	go func() {
+		defer watcher.Close()
+		log.Printf("Watching for %s file changes in %s", ext, srcDir)
+		for {
+			select {
+			case <-watcher.Event:
+				fn(dst, srcDir, ext)
+			case err := <-watcher.Error:
+				log.Println("error:", err)
+			}
+		}
+	}()
 }
