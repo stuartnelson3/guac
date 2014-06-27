@@ -59,14 +59,13 @@ func WatchPath(srcDir, dst, ext string, fn func(dst, srcDir, ext string) (*os.Fi
 			if err != nil {
 				return err
 			}
-			log.Printf("Watching %s.\n", path)
+			log.Printf("Watching for file changes in %s\n", path)
 		}
 		return nil
 	})
 
 	go func() {
 		defer watcher.Close()
-		log.Printf("Watching for %s file changes in %s", ext, srcDir)
 		for {
 			select {
 			case <-watcher.Event:

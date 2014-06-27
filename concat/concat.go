@@ -18,7 +18,7 @@ func Concat(dst, srcDir, ext string) (*os.File, error) {
 func find(ext, dst string) func(path string, info os.FileInfo, err error) error {
 	return func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ext {
-			log.Printf("Appending %s\n", path)
+			log.Printf("Appending %s to %s\n", path, dst)
 			dst, err := os.OpenFile(dst, os.O_RDWR|os.O_APPEND, 0666)
 			if err != nil {
 				return err
