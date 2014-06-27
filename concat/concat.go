@@ -7,12 +7,14 @@ import (
 	"path/filepath"
 )
 
-// Concat walks srcDir and appends all files found with extension matching ext
+// Concat walks srcDir and appends all files found with extension ext
 // to dst. Files are appended in lexical order.
-func Concat(dst, srcDir, ext string) (*os.File, error) {
-	f, err := os.Create(dst)
-	filepath.Walk(srcDir, find(ext, dst))
-	return f, err
+func Concat(dst, srcDir, ext string) func() (*os.File, error) {
+	return func() (*os.File, error) {
+		f, err := os.Create(dst)
+		filepath.Walk(srcDir, find(ext, dst))
+		return f, err
+	}
 }
 
 func find(ext, dst string) func(path string, info os.FileInfo, err error) error {
