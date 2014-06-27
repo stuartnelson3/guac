@@ -18,6 +18,7 @@ func main() {
 		showHelp = flag.Bool("h", false, "show this help")
 		srcDir   = flag.String("src", "", "the source directory for your js")
 		dst      = flag.String("dst", "", "the file to write to")
+		ext      = flag.String("ext", ".js", "the file extension to update")
 	)
 	flag.Parse()
 
@@ -44,11 +45,11 @@ func main() {
 	})
 
 	go func() {
-		log.Printf("Watching for %s file changes in %s", ".js", *srcDir)
+		log.Printf("Watching for %s file changes in %s", *ext, *srcDir)
 		for {
 			select {
 			case <-watcher.Event:
-				concat(*dst, *srcDir)
+				concat(*dst, *srcDir, *ext)
 			case err := <-watcher.Error:
 				log.Println("error:", err)
 			}
@@ -65,14 +66,14 @@ func main() {
 		done <- true
 	}()
 
-	concat(*dst, *srcDir)
+	concat(*dst, *srcDir, *ext)
 
 	<-done
 }
 
-func concat(dst, srcDir string) (*os.File, error) {
+func concat(dst, srcDir, ext string) (*os.File, error) {
 	f, err := os.Create(dst)
-	filepath.Walk(srcDir, find(".js", dst))
+	filepath.Walk(srcDir, find(ext, dst))
 	return f, err
 }
 
