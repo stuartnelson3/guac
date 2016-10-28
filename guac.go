@@ -1,42 +1,20 @@
 package guac
 
 import (
+	"context"
 	"log"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"github.com/howeyc/fsnotify"
 )
 
-// Run blocks until the process receives SIGINT or SIGTERM, allowing WatchPath
-// to run.
-func Run() {
-	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		log.Printf("\nStopping watch.\n")
-		done <- true
-	}()
-
-	<-done
-}
-
-// WatchPath sets up a watcher on srcDir and all child directories. fn is
-// executed whenever a folder being watched emits a fs event.
-func WatchPath(srcDir string, fn func() error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+// Watch blocks until the the Watcher's context is canceled or its Done channel
+// closed.  It executes function fn when changes in srcDir are detected.
+func (w *Watcher) Run() {
+	filepath.Walk(w.srcDir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
-			err = watcher.Watch(path)
+			err = w.Watch(path)
 			if err != nil {
 				return err
 			}
@@ -45,17 +23,42 @@ func WatchPath(srcDir string, fn func() error) {
 		return nil
 	})
 
-	go func() {
-		defer watcher.Close()
-		for {
-			select {
-			case <-watcher.Event:
-				if err := fn(); err != nil {
-					log.Println("error:", err)
-				}
-			case err := <-watcher.Error:
+	defer w.Close()
+	for {
+		select {
+		case <-w.ctx.Done():
+			return
+		case <-w.Event:
+			if err := w.fn(); err != nil {
 				log.Println("error:", err)
 			}
+		case err := <-w.Error:
+			log.Println("error:", err)
 		}
-	}()
+	}
+}
+
+// Watcher watches.
+type Watcher struct {
+	ctx    context.Context
+	srcDir string
+	fn     func() error
+
+	*fsnotify.Watcher
+}
+
+// NewWatcher creates a new watcher.
+func NewWatcher(ctx context.Context, srcDir string, fn func() error) *Watcher {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return &Watcher{
+		ctx:     ctx,
+		srcDir:  srcDir,
+		fn:      fn,
+		Watcher: watcher,
+	}
+
 }
