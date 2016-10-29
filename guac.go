@@ -48,10 +48,10 @@ type Watcher struct {
 }
 
 // NewWatcher creates a new watcher.
-func NewWatcher(ctx context.Context, srcDir string, fn func() error) *Watcher {
+func NewWatcher(ctx context.Context, srcDir string, fn func() error) (*Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	return &Watcher{
@@ -59,6 +59,5 @@ func NewWatcher(ctx context.Context, srcDir string, fn func() error) *Watcher {
 		srcDir:  srcDir,
 		fn:      fn,
 		Watcher: watcher,
-	}
-
+	}, nil
 }

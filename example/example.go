@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,12 +13,17 @@ import (
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	go guac.NewWatcher(ctx, "./concat", func() error {
+	defer cancel()
+
+	watcher, err := guac.NewWatcher(ctx, "./concat", func() error {
 		fmt.Println("change detected")
 		return nil
-	}).Run()
+	})
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
 
-	defer cancel()
+	go watcher.Run()
 
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
