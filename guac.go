@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/howeyc/fsnotify"
+	"github.com/fsnotify/fsnotify"
 )
 
 // Watch blocks until the the Watcher's context is canceled or its Done channel
@@ -15,7 +15,7 @@ import (
 func (w *Watcher) run() {
 	filepath.Walk(w.srcDir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
-			err = w.Watch(path)
+			err = w.Add(path)
 			if err != nil {
 				return err
 			}
@@ -29,10 +29,10 @@ func (w *Watcher) run() {
 		select {
 		case <-w.ctx.Done():
 			return
-		case <-w.Event:
+		case <-w.Events:
 			w.debounce.Stop()
 			w.debounce = time.AfterFunc(w.debounceTime, func() { w.fn() })
-		case err := <-w.Error:
+		case err := <-w.Errors:
 			log.Println("error:", err)
 		}
 	}
