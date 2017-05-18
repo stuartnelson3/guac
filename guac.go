@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/howeyc/fsnotify"
+	"github.com/fsnotify/fsnotify"
 )
 
 // Watch blocks until the the Watcher's context is canceled or its Done channel
